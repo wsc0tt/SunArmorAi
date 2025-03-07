@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+/* custom tailwind styles */
+@theme {
+    --color-peach: #ffbd59;
+    --color-peach-light: #ffd89d;
+    --font-display: 'Archivo', sans-serif;
+    --breakpoint-sm: 30rem;
+    --breakpoint-md: 40rem;
+    --breakpoint-lg: 72rem;
+}
+
+:root {
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+
+    color-scheme: light dark;
+    color: rgb(255, 255, 255);
+    background-color: #181818;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
