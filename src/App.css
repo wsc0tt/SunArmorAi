@@ -1,0 +1,18 @@
+@import 'tailwindcss';
+@tailwind utilities;
+
+@theme {
+    --color-peach: #ffbd59;
+    --color-peach-light: #ffd89d;
+    --font-display: 'Archivo', sans-serif;
+    --breakpoint-sm: 30rem;
+    --breakpoint-md: 40rem;
+    --breakpoint-lg: 72rem;
+}
+
+#root {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2rem;
+    text-align: center;
+}
