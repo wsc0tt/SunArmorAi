@@ -4,6 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+    base: '/SunArmorAi/',
+    build: {
+        outDir: 'docs',
+    },
     plugins: [react(), tailwindcss()],
     assetsInclude: ['**/*.wasm'],
 })
