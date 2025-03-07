@@ -89,7 +89,9 @@ function ImageUploader() {
 
         try {
             // Load the ONNX model from the public folder
-            const session = await ort.InferenceSession.create('/model.onnx')
+            const session = await ort.InferenceSession.create(
+                'https://wsc0tt.github.io/SunArmorAi/model.onnx'
+            )
             console.log('Model output names:', session.outputNames) // Debug output names
             // Preprocess the image
             const img = new Image()
