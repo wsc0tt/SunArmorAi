@@ -1,21 +1,20 @@
 import React, { useState, useRef } from 'react'
-import * as ort from 'onnxruntime-web'
 
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'
+// The Hugging Face model ID for the skin cancer classification model
+const MODEL_ID = 'Anwarkh1/Skin_Cancer-Image_Classification'
 
 function ImageUploader() {
     const [selectedFile, setSelectedFile] = useState(null)
     const [preview, setPreview] = useState(null)
-    const [uploading, setUploading] = useState(false)
+    const [processing, setProcessing] = useState(false)
     const [response, setResponse] = useState(null)
     const [error, setError] = useState(null)
 
-    const imgInput = useRef(null)
-    // new
-    const canvasRef = useRef(null)
+    // Get your Hugging Face API token from environment variables
+    const HF_TOKEN =
+        import.meta.env.VITE_HUGGING_FACE_TOKEN || 'hf_YOUR_HUGGING_FACE_TOKEN'
 
-    // Replace with your ngrok URL from Colab
-    //const API_URL = 'https://bcfb-130-86-97-245.ngrok-free.app/upload'
+    const imgInput = useRef(null)
 
     const handleFileChange = (event) => {
         const file = event.target.files[0]
@@ -46,115 +45,123 @@ function ImageUploader() {
         }
     }
 
-    // *** new ***
-    const preprocessImage = (img, width = 224, height = 224) => {
-        const canvas = canvasRef.current
-        if (!canvas) {
-            throw new Error('Canvas element is not available')
-        }
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, width, height)
-
-        const imageData = ctx.getImageData(0, 0, width, height).data
-        const inputData = new Float32Array(width * height * 3)
-
-        // normalize rgb values
-        for (let i = 0; i < imageData.length / 4; i++) {
-            inputData[i * 3] = imageData[i * 4] / 255
-            inputData[i * 3 + 1] = imageData[i * 4 + 1] / 255
-            inputData[i * 3 + 2] = imageData[i * 4 + 2] / 255
-        }
-
-        // shape
-        return new ort.Tensor('float32', inputData, [1, 3, height, width])
-    }
-
-    const softmax = (arr) => {
-        const exp = arr.map(Math.exp)
-        const sumExp = exp.reduce((a, b) => a + b, 0)
-        return exp.map((x) => x / sumExp)
-    }
-
     const handleUpload = async () => {
-        let isMounted = true
         if (!selectedFile) {
             setError('Please select an image first')
             return
         }
 
-        setUploading(true)
+        setProcessing(true)
         setError(null)
 
         try {
-            // Load the ONNX model from the public folder
-            const session = await ort.InferenceSession.create(
-                'https://huggingface.co/wscott/SunArmor/resolve/main/model.onnx'
+            // Read the image file as a binary blob
+            const arrayBuffer = await selectedFile.arrayBuffer()
+
+            // Send the image directly as binary data
+            const response = await fetch(
+                `https://api-inference.huggingface.co/models/${MODEL_ID}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${HF_TOKEN}`,
+                        'Content-Type': 'application/octet-stream', // Send as binary data
+                    },
+                    body: arrayBuffer,
+                }
             )
-            console.log('Model output names:', session.outputNames) // Debug output names
-            // Preprocess the image
-            const img = new Image()
-            img.src = preview
-            await new Promise((resolve) => (img.onload = resolve))
 
-            if (!canvasRef.current) {
-                throw new Error('Canvas element is not available')
+            // Check if the request was successful
+            if (!response.ok) {
+                let errorMessage = `HTTP error ${response.status}`
+                try {
+                    const errorData = await response.json()
+                    errorMessage = `API Error: ${
+                        response.status
+                    } - ${JSON.stringify(errorData)}`
+                } catch {
+                    const errorText = await response.text()
+                    errorMessage = `API Error: ${response.status} - ${errorText}`
+                }
+                throw new Error(errorMessage)
             }
 
-            const tensor = preprocessImage(img)
+            // Parse the response
+            const result = await response.json()
+            console.log('Classification result:', result)
 
-            // Run inference
-            const feeds = { pixel_values: tensor } // Replace 'input' with your model's input name
-            const results = await session.run(feeds)
-            console.log('Results:', Object.keys(results)) // Debug results
-            // Process output (replace 'output' with your model's output name)
-            const logits = results.logits.data
-            const predictedClassIdx = Array.from(logits).reduce(
-                (maxIdx, val, idx, arr) => (val > arr[maxIdx] ? idx : maxIdx),
-                0
-            )
-            const probabilities = softmax(Array.from(logits))
-            const predictedClassScore =
-                probabilities[predictedClassIdx].toFixed(4)
-
-            const id2label = {
-                0: 'Benign',
-                1: 'Malignant',
-                2: 'Malignant',
-                3: 'Malignant',
-                4: 'Benign',
-                5: 'Malignant',
-                6: 'Benign',
-            }
-            const label = id2label[predictedClassIdx]
-
-            let result
-            if ([0, 4, 6].includes(predictedClassIdx)) {
-                result = 'Not Cancer'
-            } else if ([1, 2, 3, 5].includes(predictedClassIdx)) {
-                result = 'Cancer or Problematic'
-            } else {
-                result = predictedClassScore < 0.5 ? 'Unknown' : 'Unclassified'
-            }
-            if (isMounted) {
+            // Process the results based on the model's actual response format
+            if (Array.isArray(result)) {
+                // If result is an array of class predictions
+                const processedResult = processClassificationResult(result)
+                setResponse(processedResult)
+            } else if (result.label) {
+                // If result has a direct label
                 setResponse({
-                    message: 'Inference complete.',
-                    label: label,
-                    predicted_class_score: predictedClassScore,
-                    result: result,
+                    message: 'Analysis complete',
+                    label: result.label,
+                    predicted_class_score: (result.score || 0).toFixed(4),
+                    result: determineCancerStatus(result.label),
+                })
+            } else {
+                // For any other response format
+                console.log('Unknown response format:', result)
+                setResponse({
+                    message: 'Analysis complete (see console for details)',
+                    rawResult: result,
                 })
             }
         } catch (err) {
-            if (isMounted) setError(err.message || 'Error processing image')
-            console.error('Inference error:', err)
+            console.error('Error processing image:', err)
+            setError(`Error: ${err.message}`)
         } finally {
-            if (isMounted) setUploading(false)
+            setProcessing(false)
         }
+    }
+
+    // Helper function to process classification results
+    const processClassificationResult = (results) => {
+        // Sort by confidence score (descending)
+        const sortedResults = [...results].sort((a, b) => b.score - a.score)
+        const topResult = sortedResults[0]
+
+        return {
+            message: 'Analysis complete',
+            label: topResult.label,
+            predicted_class_score: topResult.score.toFixed(4),
+            result: determineCancerStatus(topResult.label),
+            allResults: sortedResults, // Store all results for reference
+        }
+    }
+
+    // Helper function to determine cancer status from label
+    const determineCancerStatus = (label) => {
+        // This mapping depends on the specific labels used by the model
+        const malignantLabels = [
+            'malignant',
+            'melanoma',
+            'carcinoma',
+            'basal cell carcinoma',
+            'squamous cell carcinoma',
+        ]
+
+        // Check if any malignant terms appear in the label (case insensitive)
+        const isMalignant = malignantLabels.some((term) =>
+            label.toLowerCase().includes(term)
+        )
+
+        return isMalignant ? 'Cancer or Problematic' : 'Not Cancer'
     }
 
     return (
         <div className='w-75 sm:w-100 mx-auto p-6 bg-neutral-700 rounded-lg shadow-lg'>
+            {processing && (
+                <div className='mb-4 p-3 bg-neutral-600 text-white rounded'>
+                    Analyzing image with Hugging Face API... This may take a
+                    moment.
+                </div>
+            )}
+
             <div className='mb-4'>
                 <input
                     type='file'
@@ -165,9 +172,11 @@ function ImageUploader() {
                 />
                 <button
                     onClick={() => imgInput.current.click()}
-                    className='w-full p-2 rounded text-black bg-peach hover:bg-peach-light font-display'
+                    className='w-full p-2 rounded text-black font-display bg-peach hover:bg-peach-light'
                 >
-                    SELECT IMAGE
+                    {selectedFile
+                        ? `IMAGE: ${selectedFile.name}`
+                        : 'SELECT IMAGE'}
                 </button>
             </div>
 
@@ -183,17 +192,15 @@ function ImageUploader() {
 
             <button
                 onClick={handleUpload}
-                disabled={!selectedFile || uploading}
+                disabled={!selectedFile || processing}
                 className={`w-full p-2 rounded text-black font-display ${
-                    !selectedFile || uploading
+                    !selectedFile || processing
                         ? 'bg-neutral-400'
                         : 'bg-peach hover:bg-peach-light'
                 }`}
             >
-                {uploading ? 'UPLOADING...' : 'UPLOAD'}
+                {processing ? 'ANALYZING...' : 'ANALYZE IMAGE'}
             </button>
-
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
 
             {error && (
                 <div className='mt-4 p-3 bg-neutral-300 text-red-500 rounded font-display'>
@@ -205,17 +212,41 @@ function ImageUploader() {
                     <span className='bg-peach-light p-2 rounded animate-pulse'>
                         Success! {response.message}
                     </span>
-                    <span className='p-2'>
-                        Type: {response.label}
-                        <br />
-                        Confidence:{' '}
-                        {parseFloat(
-                            (response.predicted_class_score * 100).toFixed(2)
-                        )}
-                        %
-                        <br />
-                        Result: {response.result}
-                    </span>
+                    {response.label && (
+                        <span className='p-2'>
+                            Type: {response.label}
+                            <br />
+                            Confidence:{' '}
+                            {parseFloat(
+                                (response.predicted_class_score * 100).toFixed(
+                                    2
+                                )
+                            )}
+                            %
+                            <br />
+                            Result: {response.result}
+                        </span>
+                    )}
+                    {response.allResults && (
+                        <div className='mt-2 p-2'>
+                            <h4 className='font-bold mb-1'>
+                                All Classifications:
+                            </h4>
+                            <ul className='text-sm'>
+                                {response.allResults.map((result, index) => (
+                                    <li key={index}>
+                                        {result.label}:{' '}
+                                        {(result.score * 100).toFixed(2)}%
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {response.rawResult && (
+                        <pre className='p-2 text-xs overflow-auto'>
+                            {JSON.stringify(response.rawResult, null, 2)}
+                        </pre>
+                    )}
                 </div>
             )}
         </div>
