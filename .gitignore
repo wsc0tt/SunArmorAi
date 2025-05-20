@@ -32,3 +32,4 @@ dist-ssr
 
 # let github build with token
 /dist
+/docs
