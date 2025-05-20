@@ -31,5 +31,3 @@ dist-ssr
 .env.development
 
 # let github build with token
-/dist
-/docs
