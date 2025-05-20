@@ -29,3 +29,6 @@ dist-ssr
 .env
 .env.local
 .env.development
+
+# let github build with token
+/dist
