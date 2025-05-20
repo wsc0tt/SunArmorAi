@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-
+// added comment
 // The Hugging Face model ID for the skin cancer classification model
 const MODEL_ID = 'Anwarkh1/Skin_Cancer-Image_Classification'
 
