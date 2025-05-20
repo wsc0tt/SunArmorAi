@@ -11,8 +11,6 @@ function ImageUploader() {
     const [error, setError] = useState(null)
 
     // Get your Hugging Face API token from environment variables
-    const HF_TOKEN =
-        import.meta.env.VITE_HUGGING_FACE_TOKEN || 'hf_YOUR_HUGGING_FACE_TOKEN'
 
     const imgInput = useRef(null)
 
@@ -60,13 +58,9 @@ function ImageUploader() {
 
             // Send the image directly as binary data
             const response = await fetch(
-                `https://api-inference.huggingface.co/models/${MODEL_ID}`,
+                `https://sunarmor.wsc0tt.workers.dev/`,
                 {
                     method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${HF_TOKEN}`,
-                        'Content-Type': 'application/octet-stream', // Send as binary data
-                    },
                     body: arrayBuffer,
                 }
             )
