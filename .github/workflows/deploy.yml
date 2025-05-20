@@ -1,16 +1,17 @@
 # .github/workflows/deploy.yml
-name: Deploy to GitHub Pages
+name: Deploy Vite app to GitHub Pages
 
 on:
     push:
-        branches: [gh-pages]
+        branches: [main, master]
     workflow_dispatch:
 
 jobs:
     build-and-deploy:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v3
+            - name: Checkout
+              uses: actions/checkout@v3
 
             - name: Setup Node.js
               uses: actions/setup-node@v3
@@ -30,4 +31,5 @@ jobs:
             - name: Deploy
               uses: JamesIves/github-pages-deploy-action@v4
               with:
-                  folder: docs # or whatever your build output directory is
+                  folder: dist # Use the correct build output folder
+                  branch: gh-pages # The branch to deploy to

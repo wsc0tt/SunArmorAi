@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
     base: '/SunArmorAi/',
     build: {
-        outDir: 'docs',
+        outDir: 'dist',
     },
     plugins: [react(), tailwindcss()],
     assetsInclude: ['**/*.wasm'],
