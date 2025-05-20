@@ -1,10 +1,12 @@
-# .github/workflows/deploy.yml
-name: Deploy Vite app to GitHub Pages
+name: Deploy Vite App
 
 on:
     push:
-        branches: [gh-pages]
+        branches: [main, master]
     workflow_dispatch:
+
+permissions:
+    contents: write
 
 jobs:
     build-and-deploy:
@@ -31,5 +33,5 @@ jobs:
             - name: Deploy
               uses: JamesIves/github-pages-deploy-action@v4
               with:
-                  folder: dist # Use the correct build output folder
-                  branch: gh-pages # The branch to deploy to
+                  folder: dist
+                  branch: gh-pages
