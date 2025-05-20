@@ -2,7 +2,7 @@ name: Deploy Vite App
 
 on:
     push:
-        branches: [main, master]
+        branches: [gh-pages]
     workflow_dispatch:
 
 permissions:
